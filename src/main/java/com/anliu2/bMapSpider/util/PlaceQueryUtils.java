@@ -11,19 +11,16 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import net.sf.json.JsonConfig;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.ParseException;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.ResponseHandler;
-import org.apache.http.client.config.CookieSpecs;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
+import com.anliu2.bMapSpider.common.BMapConstant;
 import com.anliu2.bMapSpider.place.model.PlaceInfo;
 import com.anliu2.bMapSpider.place.model.PlaceResponse;
 
@@ -35,73 +32,108 @@ import com.anliu2.bMapSpider.place.model.PlaceResponse;
  * @modify_time: 2014-6-17
  */
 public class PlaceQueryUtils {
-	private static final String USER_AK = "2C9xgOeiUGd0mZsXXiAS44rw";
-	private static final String WHITE_URL = "http://www.anliu2.com";
-
-	// private static final String USER_AK = "E4805d16520de693a3fe707cdc962045";
-	// private static final String WHITE_URL =
-	// "http://developer.baidu.com/map/webservice-placeapi.htm";
+	private static final ResponseHandler<PlaceResponse> PLACE_BEAN_CONVERT = new ResponseHandler<PlaceResponse>() {
+		@SuppressWarnings("unchecked")
+		@Override
+		public PlaceResponse handleResponse(final HttpResponse hResponse) throws ClientProtocolException,
+				ParseException, IOException {
+			final int status = hResponse.getStatusLine().getStatusCode();
+			if (status >= 200 && status < 300) {
+				final HttpEntity entity = hResponse.getEntity();
+				if (entity == null) {
+					return null;
+				}
+				final String jsonString = EntityUtils.toString(entity);
+				final JSONObject fromObject = JSONObject.fromObject(jsonString);
+				final PlaceResponse bean = (PlaceResponse) JSONObject.toBean(fromObject, new PlaceResponse(),
+						new JsonConfig());
+				if ("0".equals(bean.getStatus()) && Integer.valueOf(bean.getTotal()) > 0) {
+					final JSONArray jsonArray = fromObject.getJSONArray("results");
+					bean.setResults(JSONArray.toList(jsonArray, new PlaceInfo(), new JsonConfig()));
+				}
+				return bean;
+			} else {
+				throw new ClientProtocolException("Unexpected response status: " + status);
+			}
+		}
+	};
 
 	public static void main(final String[] args) throws ParseException, IOException {
-		System.out.println(queryPlaceRound4Json("停车站", "31.213263", "121.508101", "300", "0"));
-		System.out.println(queryPlaceRound("停车站", "31.213263", "121.508101", "300", "0"));
+		// System.out.println(queryPlaceRound4Json("停车站", "31.213263",
+		// "121.508101", "300", "0"));
+		// System.out.println(queryPlaceRound("停车站", "31.213263", "121.508101",
+		// "300", "0"));
+		// System.out.println(queryPlaceRegion4Json("停车站", "上海", "0"));
+		// System.out.println(queryPlaceRegion("停车站", "上海", "0"));
+		// System.out.println(queryPlaceBounds4Json("停车站", "31.213263",
+		// "121.508101", "31.313263", "121.608101", "0"));
+		Log log = LogFactory.getLog(PlaceQueryUtils.class);
+		log.info("asdf");
+		System.out.println(queryPlaceBounds4Json("停车", BMapConstant.CENTER_LAT_DECIMAL.toString(),
+				BMapConstant.CENTER_LNG_DECIMAL.toString(),
+				BMapConstant.CENTER_LAT_DECIMAL.add(BMapConstant.RUN_STEP_DECIMAL).toString(),
+				BMapConstant.CENTER_LNG_DECIMAL.add(BMapConstant.RUN_STEP_DECIMAL).toString(), "0"));
+
+//		System.out.println(queryPlaceRegion4Json("停车", "上海", "30"));
 	}
 
 	public static PlaceResponse queryPlaceRound(final String cond, final String lat, final String lng,
 			final String radius, final String pageNo) throws ClientProtocolException, IOException {
-		final StringBuilder urlBuilder = concatUrl(cond, lat, lng, radius, pageNo);
-		final HttpGet hRequest = createHttpGet(urlBuilder);
-		final CloseableHttpClient client = createHttpClient();
-		try {
-			return client.execute(hRequest, new ResponseHandler<PlaceResponse>() {
-				@SuppressWarnings("unchecked")
-				@Override
-				public PlaceResponse handleResponse(final HttpResponse hResponse) throws ClientProtocolException,
-						ParseException, IOException {
-					final int status = hResponse.getStatusLine().getStatusCode();
-					if (status >= 200 && status < 300) {
-						final HttpEntity entity = hResponse.getEntity();
-						if (entity == null) {
-							return null;
-						}
-						final String jsonString = EntityUtils.toString(entity);
-						final JSONObject fromObject = JSONObject.fromObject(jsonString);
-						final PlaceResponse bean = (PlaceResponse) JSONObject.toBean(fromObject, new PlaceResponse(),
-								new JsonConfig());
-						if ("0".equals(bean.getStatus()) && Integer.valueOf(bean.getTotal()) > 0) {
-							final JSONArray jsonArray = fromObject.getJSONArray("results");
-							bean.setResults(JSONArray.toList(jsonArray, new PlaceInfo(), new JsonConfig()));
-						}
-						return bean;
-					} else {
-						throw new ClientProtocolException("Unexpected response status: " + status);
-					}
-				}
-			});
-		} finally {
-			client.close();
-		}
+		final String url = concatRoundUrl(cond, lat, lng, radius, pageNo);
+		return HttpReqUtils.processUrl(url, PLACE_BEAN_CONVERT);
 	}
 
 	public static String queryPlaceRound4Json(final String cond, final String lat, final String lng,
 			final String radius, final String pageNo) throws ClientProtocolException, IOException {
-		final StringBuilder urlBuilder = concatUrl(cond, lat, lng, radius, pageNo);
-		final HttpGet hRequest = createHttpGet(urlBuilder);
-
-		final CloseableHttpClient client = createHttpClient();
-		try {
-			final CloseableHttpResponse hResponse = client.execute(hRequest);
-			try {
-				return EntityUtils.toString(hResponse.getEntity());
-			} finally {
-				hResponse.close();
-			}
-		} finally {
-			client.close();
-		}
+		final String url = concatRoundUrl(cond, lat, lng, radius, pageNo);
+		return HttpReqUtils.processUrl(url, HttpReqUtils.STRING_CONVERT);
 	}
 
-	private static StringBuilder concatUrl(final String cond, final String lat, final String lng, final String radius,
+	public static PlaceResponse queryPlaceRegion(final String cond, final String region, final String pageNo)
+			throws ClientProtocolException, IOException {
+		final String url = concatRegionUrl(cond, region, pageNo);
+		return HttpReqUtils.processUrl(url, PLACE_BEAN_CONVERT);
+	}
+
+	public static String queryPlaceRegion4Json(final String cond, final String region, final String pageNo)
+			throws ClientProtocolException, IOException {
+		final String url = concatRegionUrl(cond, region, pageNo);
+		System.out.println(url);
+		return HttpReqUtils.processUrl(url, HttpReqUtils.STRING_CONVERT);
+	}
+
+	public static PlaceResponse queryPlaceBounds(final String cond, final String leftDownLat, final String leftDownLng,
+			final String rightUpLat, final String rightUpLng, final String pageNo) throws ClientProtocolException,
+			IOException {
+		final String url = concatBoundsUrl(cond, leftDownLat, leftDownLng, rightUpLat, rightUpLng, pageNo);
+		return HttpReqUtils.processUrl(url, PLACE_BEAN_CONVERT);
+	}
+
+	public static String queryPlaceBounds4Json(final String cond, final String leftDownLat, final String leftDownLng,
+			final String rightUpLat, final String rightUpLng, final String pageNo) throws ClientProtocolException,
+			IOException {
+		final String url = concatBoundsUrl(cond, leftDownLat, leftDownLng, rightUpLat, rightUpLng, pageNo);
+		return HttpReqUtils.processUrl(url, HttpReqUtils.STRING_CONVERT);
+	}
+
+	private static String concatBoundsUrl(String cond, String leftDownLat, String leftDownLng, String rightUpLat,
+			String rightUpLng, String pageNo) throws UnsupportedEncodingException {
+		final StringBuilder urlBuilder = new StringBuilder("http://api.map.baidu.com/place/v2/search?");
+		urlBuilder.append("&q=");
+		urlBuilder.append(URLEncoder.encode(cond, "UTF-8"));
+		urlBuilder.append("&bounds=");
+		urlBuilder.append(leftDownLat + "," + leftDownLng + "," + rightUpLat + "," + rightUpLng);
+		urlBuilder.append("&output=json");
+		urlBuilder.append("&ak=");
+		urlBuilder.append(BMapConstant.USER_AK);
+		urlBuilder.append("&page_num=");
+		urlBuilder.append(pageNo);
+		urlBuilder.append("&page_size=");
+		urlBuilder.append(BMapConstant.PAGE_SIZE);
+		return urlBuilder.toString();
+	}
+
+	private static String concatRoundUrl(final String cond, final String lat, final String lng, final String radius,
 			final String pageNo) throws UnsupportedEncodingException {
 		final StringBuilder urlBuilder = new StringBuilder("http://api.map.baidu.com/place/v2/search?");
 		urlBuilder.append("&q=");
@@ -112,22 +144,28 @@ public class PlaceQueryUtils {
 		urlBuilder.append(radius);
 		urlBuilder.append("&output=json");
 		urlBuilder.append("&ak=");
-		urlBuilder.append(USER_AK);
+		urlBuilder.append(BMapConstant.USER_AK);
 		urlBuilder.append("&page_num=");
 		urlBuilder.append(pageNo);
-		urlBuilder.append("&page_size=20");
-		return urlBuilder;
+		urlBuilder.append("&page_size=");
+		urlBuilder.append(BMapConstant.PAGE_SIZE);
+		return urlBuilder.toString();
 	}
 
-	private static CloseableHttpClient createHttpClient() {
-		final RequestConfig globalConfig = RequestConfig.custom().setCookieSpec(CookieSpecs.IGNORE_COOKIES).build();
-		final CloseableHttpClient client = HttpClients.custom().setDefaultRequestConfig(globalConfig).build();
-		return client;
-	}
-
-	private static HttpGet createHttpGet(final StringBuilder urlBuilder) {
-		final HttpGet hRequest = new HttpGet(urlBuilder.toString());
-		hRequest.setHeader("Referer", WHITE_URL);
-		return hRequest;
+	private static String concatRegionUrl(String cond, String region, String pageNo)
+			throws UnsupportedEncodingException {
+		final StringBuilder urlBuilder = new StringBuilder("http://api.map.baidu.com/place/v2/search?");
+		urlBuilder.append("&q=");
+		urlBuilder.append(URLEncoder.encode(cond, "UTF-8"));
+		urlBuilder.append("&region=");
+		urlBuilder.append(URLEncoder.encode(region, "UTF-8"));
+		urlBuilder.append("&output=json");
+		urlBuilder.append("&ak=");
+		urlBuilder.append(BMapConstant.USER_AK);
+		urlBuilder.append("&page_num=");
+		urlBuilder.append(pageNo);
+		urlBuilder.append("&page_size=");
+		urlBuilder.append(BMapConstant.PAGE_SIZE);
+		return urlBuilder.toString();
 	}
 }

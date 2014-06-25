@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+<!-- in java cmd add -Dlog4j.configuration=logging.xml -->
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+
+	<appender name="log.file" class="org.apache.log4j.DailyRollingFileAppender">
+		<param name="File" value="/opt/log/main.log" />
+		<param name="DatePattern" value="'.'yyyy-MM-dd" />
+		<layout class="org.apache.log4j.PatternLayout">
+			<param name="ConversionPattern" value="%d %t %-5p %c{2} - %m%n" />
+		</layout>
+	</appender>
+
+	<category name="com.anliu2">
+		<priority value="info" />
+	</category>
+	
+	<category name="com">
+		<priority value="info" />
+	</category>
+
+	<category name="org.hibernate">
+		<priority value="error" />
+	</category>
+
+	<category name="org.springframework">
+		<priority value="error" />
+	</category>
+
+	<root>
+		<priority value="info" />
+		<appender-ref ref="log.file" />
+	</root>
+</log4j:configuration>
