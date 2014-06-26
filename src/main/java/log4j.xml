@@ -4,7 +4,7 @@
 <log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
 
 	<appender name="log.file" class="org.apache.log4j.DailyRollingFileAppender">
-		<param name="File" value="/opt/log/main.log" />
+		<param name="File" value="/opt/log/bMapSpider.log" />
 		<param name="DatePattern" value="'.'yyyy-MM-dd" />
 		<layout class="org.apache.log4j.PatternLayout">
 			<param name="ConversionPattern" value="%d %t %-5p %c{2} - %m%n" />

@@ -32,6 +32,8 @@ import com.anliu2.bMapSpider.place.model.PlaceResponse;
  * @modify_time: 2014-6-17
  */
 public class PlaceQueryUtils {
+	private static final Log LOGGER = LogFactory.getLog(PlaceQueryUtils.class);
+
 	private static final ResponseHandler<PlaceResponse> PLACE_BEAN_CONVERT = new ResponseHandler<PlaceResponse>() {
 		@SuppressWarnings("unchecked")
 		@Override
@@ -44,6 +46,7 @@ public class PlaceQueryUtils {
 					return null;
 				}
 				final String jsonString = EntityUtils.toString(entity);
+				LOGGER.debug("PLACE_BEAN_CONVERT parse response json: " + jsonString);
 				final JSONObject fromObject = JSONObject.fromObject(jsonString);
 				final PlaceResponse bean = (PlaceResponse) JSONObject.toBean(fromObject, new PlaceResponse(),
 						new JsonConfig());
@@ -74,7 +77,7 @@ public class PlaceQueryUtils {
 				BMapConstant.CENTER_LAT_DECIMAL.add(BMapConstant.RUN_STEP_DECIMAL).toString(),
 				BMapConstant.CENTER_LNG_DECIMAL.add(BMapConstant.RUN_STEP_DECIMAL).toString(), "0"));
 
-//		System.out.println(queryPlaceRegion4Json("停车", "上海", "30"));
+		// System.out.println(queryPlaceRegion4Json("停车", "上海", "30"));
 	}
 
 	public static PlaceResponse queryPlaceRound(final String cond, final String lat, final String lng,
@@ -98,7 +101,6 @@ public class PlaceQueryUtils {
 	public static String queryPlaceRegion4Json(final String cond, final String region, final String pageNo)
 			throws ClientProtocolException, IOException {
 		final String url = concatRegionUrl(cond, region, pageNo);
-		System.out.println(url);
 		return HttpReqUtils.processUrl(url, HttpReqUtils.STRING_CONVERT);
 	}
 
